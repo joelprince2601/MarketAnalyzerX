@@ -11,6 +11,7 @@ CHART_THEMES = {
     'default': 'plotly',
     'dark': 'plotly_dark',
     'white': 'plotly_white',
+    'light': 'plotly_white',
     'presentation': 'presentation',
     'ggplot2': 'ggplot2',
     'seaborn': 'seaborn'
