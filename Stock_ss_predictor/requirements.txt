@@ -1,7 +1,7 @@
 pip-tools==7.3.0
 setuptools==59.8.0
 wheel>=0.38.0
-streamlit==1.32.0
+streamlit==1.24.0
 pandas==2.0.3
 numpy==1.24.3
 tensorflow-cpu==2.9.1
@@ -17,4 +17,3 @@ vaderSentiment==3.3.2
 streamlit-option-menu==0.3.2
 pandas-ta==0.3.14b0
 opencv-python-headless==4.8.1.78
-protobuf==3.19.6  # Changed to be compatible with tensorflow-cpu
