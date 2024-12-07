@@ -25,23 +25,23 @@ CHART_TYPES = {
     'hollow_candle': {'name': 'Hollow Candlestick', 'requires': ['open', 'high', 'low', 'close']}
 }
 
-# Initialize session state for chart configuration and expander states
-if 'chart_config' not in st.session_state:
-    st.session_state.chart_config = {
-        'chart_type': 'candlestick',
-        'theme': 'default',
-        'overlays': ['sma', 'bollinger'],
-        'drawing_tools': True
-    }
-
-# Initialize expander states
-if 'expander_states' not in st.session_state:
-    st.session_state.expander_states = {
-        'chart_settings': True,
-        'technical_overlays': True,
-        'drawing_tools': True,
-        'save_load': True
-    }
+def initialize_session_state():
+    """Initialize all session state variables with default values"""
+    if 'chart_config' not in st.session_state:
+        st.session_state.chart_config = {
+            'chart_type': 'candlestick',
+            'overlays': [],
+            'drawing_tools': False,
+            'theme': 'light'
+        }
+    
+    if 'expander_states' not in st.session_state:
+        st.session_state.expander_states = {
+            'chart_settings': True,
+            'technical_overlays': True,
+            'drawing_tools': True,
+            'save_load': True
+        }
 
 class ChartVisualizer:
     def __init__(self):
@@ -244,102 +244,51 @@ def render_chart_controls():
     """
     Render Streamlit controls for chart customization
     """
-    # Initialize session state if not already done
-    if 'expander_states' not in st.session_state:
-        st.session_state.expander_states = True  # Default to expanded
-
+    # Initialize session state
+    initialize_session_state()
+    
     with st.sidebar:
         st.title("Chart Controls")
         
         # Chart Settings Expander
-        with st.expander("Chart Settings", expanded=st.session_state.expander_states):
+        with st.expander("Chart Settings", expanded=st.session_state.expander_states['chart_settings']):
             # Chart Type Selection
             chart_type = st.selectbox(
                 "Chart Type",
-                list(CHART_TYPES.keys()),
-                index=list(CHART_TYPES.keys()).index(st.session_state.chart_config['chart_type']),
-                format_func=lambda x: CHART_TYPES[x]['name'],
-                key='chart_type_select'
-            )
-            
-            # Theme Selection
-            theme = st.selectbox(
-                "Chart Theme",
-                list(CHART_THEMES.keys()),
-                index=list(CHART_THEMES.keys()).index(st.session_state.chart_config['theme']),
-                key='theme_select'
+                ['candlestick', 'line', 'area'],
+                index=['candlestick', 'line', 'area'].index(st.session_state.chart_config['chart_type'])
             )
             
             # Update expander state
-            st.session_state.expander_states = True
-        
+            st.session_state.expander_states['chart_settings'] = True
+            
         # Technical Overlays Expander
-        with st.expander("Technical Overlays", expanded=st.session_state.expander_states):
-            show_sma = st.checkbox("Show SMA", 
-                                 value='sma' in st.session_state.chart_config['overlays'],
-                                 key='sma_checkbox')
-            show_bollinger = st.checkbox("Show Bollinger Bands", 
-                                       value='bollinger' in st.session_state.chart_config['overlays'],
-                                       key='bollinger_checkbox')
+        with st.expander("Technical Overlays", expanded=st.session_state.expander_states['technical_overlays']):
+            show_sma = st.checkbox("Show SMA", value='sma' in st.session_state.chart_config['overlays'])
+            show_ema = st.checkbox("Show EMA", value='ema' in st.session_state.chart_config['overlays'])
             
             # Update expander state
-            st.session_state.expander_states = True
-        
+            st.session_state.expander_states['technical_overlays'] = True
+            
         # Drawing Tools Expander
-        with st.expander("Drawing Tools", expanded=st.session_state.expander_states):
-            enable_drawing = st.checkbox("Enable Drawing Tools", 
-                                       value=st.session_state.chart_config['drawing_tools'],
-                                       key='drawing_tools_checkbox')
+        with st.expander("Drawing Tools", expanded=st.session_state.expander_states['drawing_tools']):
+            enable_drawing = st.checkbox("Enable Drawing Tools", value=st.session_state.chart_config['drawing_tools'])
             
             # Update expander state
-            st.session_state.expander_states = True
-        
+            st.session_state.expander_states['drawing_tools'] = True
+            
         # Save/Load Configuration Expander
-        with st.expander("Save/Load Configuration", expanded=st.session_state.expander_states):
+        with st.expander("Save/Load Configuration", expanded=st.session_state.expander_states['save_load']):
             save_name = st.text_input("Configuration Name")
             
-            if st.button("Save Configuration"):
-                config = {
-                    'chart_type': chart_type,
-                    'theme': theme,
-                    'overlays': [],
-                    'drawing_tools': enable_drawing
-                }
-                if show_sma:
-                    config['overlays'].append('sma')
-                if show_bollinger:
-                    config['overlays'].append('bollinger')
-                
-                visualizer = ChartVisualizer()
-                visualizer.save_chart_config(config, save_name)
-                st.success("Configuration saved!")
-                st.session_state.chart_config = config
-                
-                # Reset expander states after saving
-                for key in st.session_state.expander_states:
-                    st.session_state.expander_states[key] = False
-            
-            # Load Configuration
-            saved_configs = [f.replace('.json', '') for f in os.listdir('chart_configs')] if os.path.exists('chart_configs') else []
-            if saved_configs:
-                load_config = st.selectbox("Load Configuration", [''] + saved_configs)
-                if load_config:
-                    visualizer = ChartVisualizer()
-                    config = visualizer.load_chart_config(load_config)
-                    if config:
-                        st.success("Configuration loaded!")
-                        st.session_state.chart_config = config
-                        return config
-            
             # Update expander state
-            st.session_state.expander_states = True
+            st.session_state.expander_states['save_load'] = True
         
-        # Update session state with current settings
-        current_config = {
+        # Update chart configuration
+        st.session_state.chart_config.update({
             'chart_type': chart_type,
-            'theme': theme,
-            'overlays': (['sma'] if show_sma else []) + (['bollinger'] if show_bollinger else []),
+            'overlays': ['sma' if show_sma else None, 'ema' if show_ema else None],
             'drawing_tools': enable_drawing
-        }
-        st.session_state.chart_config = current_config
-        return current_config 
+        })
+        
+        return st.session_state.chart_config
