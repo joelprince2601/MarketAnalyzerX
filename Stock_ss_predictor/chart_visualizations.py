@@ -292,3 +292,4 @@ def render_chart_controls():
         })
         
         return st.session_state.chart_config
+        
