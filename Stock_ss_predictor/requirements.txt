@@ -1,0 +1,12 @@
+streamlit==1.32.0
+pandas==2.2.0
+numpy==1.26.4
+yfinance==0.2.36
+plotly==5.18.0
+scikit-learn==1.4.1
+python-dotenv==1.0.1
+requests==2.31.0
+beautifulsoup4==4.12.3
+ta==0.11.0
+matplotlib==3.8.3
+seaborn==0.13.2 
