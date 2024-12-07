@@ -6,7 +6,6 @@ import time
 import streamlit as st
 from PIL import Image
 import io
-from dotenv import load_dotenv
 import cv2
 import numpy as np
 from ta.trend import SMAIndicator, EMAIndicator
@@ -20,7 +19,7 @@ from indian_stocks import get_all_stocks, get_stock_info, get_stocks_by_sector
 from chart_visualizations import create_enhanced_chart, render_chart_controls
 
 # Load environment variables
-load_dotenv()
+
 ALPHA_VANTAGE_API_KEY = 'ET83IFW2NUS0PD2E'
 
 def fetch_stock_data(symbol):
