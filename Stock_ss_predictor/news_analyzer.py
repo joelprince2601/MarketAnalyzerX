@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from textblob import TextBlob
 
-NEWS_API_KEY = '3ee0afaff900479f882f5a6686d48e82'
+NEWS_API_KEY = 'cc72188184cb4806896141266916c464'
 BASE_URL = 'https://newsapi.org/v2/everything'
 
 def get_company_news(company_name, days=7):
