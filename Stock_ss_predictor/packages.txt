@@ -1,5 +1,7 @@
 python3.9
 python3.9-dev
 python3.9-distutils
+python3.9-venv
 build-essential
 libgl1-mesa-glx
+python3-pip
