@@ -244,11 +244,15 @@ def render_chart_controls():
     """
     Render Streamlit controls for chart customization
     """
+    # Initialize session state if not already done
+    if 'expander_states' not in st.session_state:
+        st.session_state.expander_states = True  # Default to expanded
+
     with st.sidebar:
         st.title("Chart Controls")
         
         # Chart Settings Expander
-        with st.expander("Chart Settings", expanded=st.session_state.expander_states['chart_settings']):
+        with st.expander("Chart Settings", expanded=st.session_state.expander_states):
             # Chart Type Selection
             chart_type = st.selectbox(
                 "Chart Type",
@@ -267,10 +271,10 @@ def render_chart_controls():
             )
             
             # Update expander state
-            st.session_state.expander_states['chart_settings'] = True
+            st.session_state.expander_states = True
         
         # Technical Overlays Expander
-        with st.expander("Technical Overlays", expanded=st.session_state.expander_states['technical_overlays']):
+        with st.expander("Technical Overlays", expanded=st.session_state.expander_states):
             show_sma = st.checkbox("Show SMA", 
                                  value='sma' in st.session_state.chart_config['overlays'],
                                  key='sma_checkbox')
@@ -279,19 +283,19 @@ def render_chart_controls():
                                        key='bollinger_checkbox')
             
             # Update expander state
-            st.session_state.expander_states['technical_overlays'] = True
+            st.session_state.expander_states = True
         
         # Drawing Tools Expander
-        with st.expander("Drawing Tools", expanded=st.session_state.expander_states['drawing_tools']):
+        with st.expander("Drawing Tools", expanded=st.session_state.expander_states):
             enable_drawing = st.checkbox("Enable Drawing Tools", 
                                        value=st.session_state.chart_config['drawing_tools'],
                                        key='drawing_tools_checkbox')
             
             # Update expander state
-            st.session_state.expander_states['drawing_tools'] = True
+            st.session_state.expander_states = True
         
         # Save/Load Configuration Expander
-        with st.expander("Save/Load Configuration", expanded=st.session_state.expander_states['save_load']):
+        with st.expander("Save/Load Configuration", expanded=st.session_state.expander_states):
             save_name = st.text_input("Configuration Name")
             
             if st.button("Save Configuration"):
@@ -328,7 +332,7 @@ def render_chart_controls():
                         return config
             
             # Update expander state
-            st.session_state.expander_states['save_load'] = True
+            st.session_state.expander_states = True
         
         # Update session state with current settings
         current_config = {
