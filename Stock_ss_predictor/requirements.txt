@@ -1,7 +1,7 @@
 streamlit==1.32.0
 pandas==2.0.3
-numpy>=1.25.0       # Updated to avoid reliance on distutils
-tensorflow-cpu>=2.13.0  # Updated for Python 3.12 compatibility
+numpy==1.24.3
+tensorflow-cpu==2.10.0
 python-dotenv==1.0.0
 yfinance==0.2.36
 plotly==5.17.0
@@ -13,4 +13,5 @@ nltk==3.8.1
 vaderSentiment==3.3.2
 streamlit-option-menu==0.3.2
 pandas-ta==0.3.14b0
-setuptools>=65.5.1  # Use the latest version
+setuptools==65.5.1
+opencv-python-headless==4.8.1.78
