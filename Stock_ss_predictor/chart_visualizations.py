@@ -32,7 +32,7 @@ def initialize_session_state():
             'chart_type': 'candlestick',
             'overlays': [],
             'drawing_tools': False,
-            'theme': 'light'
+            'theme': 'default'  # Using 'default' from CHART_THEMES
         }
     
     if 'expander_states' not in st.session_state:
@@ -47,204 +47,114 @@ class ChartVisualizer:
     def __init__(self):
         self.drawings = []
         self.annotations = []
-        self.current_theme = st.session_state.chart_config['theme']
-        self.current_chart_type = st.session_state.chart_config['chart_type']
-    
-    def create_base_chart(self, df, chart_type='candlestick', theme='default'):
-        """
-        Create the base chart with specified type and theme
-        """
-        fig = make_subplots(rows=2, cols=1, 
-                           shared_xaxes=True,
-                           vertical_spacing=0.03,
-                           row_heights=[0.7, 0.3])
+        self.current_theme = st.session_state.chart_config.get('theme', 'default')
+        self.current_chart_type = st.session_state.chart_config.get('chart_type', 'candlestick')
 
-        # Main price chart
+    def create_base_chart(self, df, chart_type='candlestick', theme='default'):
+        """Create the base chart with the specified type and theme"""
+        # Ensure theme exists in CHART_THEMES, fallback to default if not
+        theme = theme if theme in CHART_THEMES else 'default'
+        
+        fig = go.Figure(
+            layout=go.Layout(
+                template=CHART_THEMES[theme],
+                xaxis_rangeslider_visible=False,
+                height=600,
+                title={
+                    'text': f"Stock Price Chart",
+                    'y':0.9,
+                    'x':0.5,
+                    'xanchor': 'center',
+                    'yanchor': 'top'
+                }
+            )
+        )
+
         if chart_type == 'candlestick':
             fig.add_trace(
                 go.Candlestick(
                     x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price'
-                ),
-                row=1, col=1
+                    open=df['Open'],
+                    high=df['High'],
+                    low=df['Low'],
+                    close=df['Close'],
+                    name='OHLC'
+                )
             )
         elif chart_type == 'line':
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
-                    y=df['close'],
+                    y=df['Close'],
                     mode='lines',
-                    name='Price'
-                ),
-                row=1, col=1
+                    name='Close Price'
+                )
             )
         elif chart_type == 'area':
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
-                    y=df['close'],
+                    y=df['Close'],
                     fill='tozeroy',
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'bar':
-            fig.add_trace(
-                go.Ohlc(
-                    x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'hollow_candle':
-            fig.add_trace(
-                go.Candlestick(
-                    x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price',
-                    increasing={'fillcolor': 'white'},
-                    decreasing={'fillcolor': 'black'}
-                ),
-                row=1, col=1
+                    name='Close Price'
+                )
             )
 
-        # Volume chart
+        return fig
+
+    def add_volume_subplot(self, fig, df):
+        """Add volume subplot to the chart"""
         fig.add_trace(
             go.Bar(
                 x=df.index,
-                y=df['volume'],
+                y=df['Volume'],
                 name='Volume',
-                marker_color='rgba(100,100,100,0.5)'
+                marker_color='rgba(0,0,255,0.5)'
             ),
             row=2, col=1
         )
-
-        # Update layout with theme
-        fig.update_layout(
-            template=CHART_THEMES[theme],
-            xaxis_rangeslider_visible=False,
-            height=800
-        )
-
         return fig
 
-    def add_drawing_tools(self, fig):
-        """
-        Add drawing tools to the chart
-        """
-        fig.update_layout(
-            dragmode='drawline',
-            newshape=dict(
-                line_color='yellow'
-            ),
-            modebar_add=[
-                'drawline',
-                'drawopenpath',
-                'drawclosedpath',
-                'drawcircle',
-                'drawrect',
-                'eraseshape'
-            ]
-        )
-        return fig
-
-    def add_technical_overlays(self, fig, df, overlays):
-        """
-        Add technical overlays to the chart
-        """
-        if 'sma' in overlays:
-            sma20 = df['close'].rolling(window=20).mean()
-            sma50 = df['close'].rolling(window=50).mean()
-            
+    def add_technical_indicators(self, fig, df, indicators):
+        """Add technical indicators to the chart"""
+        if 'sma' in indicators:
+            sma = df['Close'].rolling(window=20).mean()
             fig.add_trace(
-                go.Scatter(x=df.index, y=sma20, name='SMA 20', line=dict(color='blue')),
-                row=1, col=1
+                go.Scatter(
+                    x=df.index,
+                    y=sma,
+                    name='20 SMA',
+                    line=dict(color='orange')
+                )
             )
-            fig.add_trace(
-                go.Scatter(x=df.index, y=sma50, name='SMA 50', line=dict(color='red')),
-                row=1, col=1
-            )
-
-        if 'bollinger' in overlays:
-            sma20 = df['close'].rolling(window=20).mean()
-            std20 = df['close'].rolling(window=20).std()
-            upper_band = sma20 + (std20 * 2)
-            lower_band = sma20 - (std20 * 2)
-            
-            fig.add_trace(
-                go.Scatter(x=df.index, y=upper_band, name='Upper BB',
-                          line=dict(color='gray', dash='dash')),
-                row=1, col=1
-            )
-            fig.add_trace(
-                go.Scatter(x=df.index, y=lower_band, name='Lower BB',
-                          line=dict(color='gray', dash='dash')),
-                row=1, col=1
-            )
-
-        return fig
-
-    def save_chart_config(self, config, filename):
-        """
-        Save chart configuration to a file
-        """
-        config['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        # Create directory if it doesn't exist
-        os.makedirs('chart_configs', exist_ok=True)
+        if 'ema' in indicators:
+            ema = df['Close'].ewm(span=20, adjust=False).mean()
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=ema,
+                    name='20 EMA',
+                    line=dict(color='blue')
+                )
+            )
         
-        with open(f'chart_configs/{filename}.json', 'w') as f:
-            json.dump(config, f)
+        return fig
 
-    def load_chart_config(self, filename):
-        """
-        Load chart configuration from a file
-        """
-        try:
-            with open(f'chart_configs/{filename}.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
+    def add_drawings(self, fig):
+        """Add user drawings to the chart"""
+        for drawing in self.drawings:
+            fig.add_trace(drawing)
+        return fig
 
-def create_enhanced_chart(df, config=None):
-    """
-    Main function to create enhanced chart with all features
-    """
-    visualizer = ChartVisualizer()
-    
-    if config is None:
-        config = st.session_state.chart_config
-    else:
-        st.session_state.chart_config = config
-    
-    # Create base chart
-    fig = visualizer.create_base_chart(df, config['chart_type'], config['theme'])
-    
-    # Add technical overlays
-    fig = visualizer.add_technical_overlays(fig, df, config['overlays'])
-    
-    # Add drawing tools if enabled
-    if config.get('drawing_tools', True):
-        fig = visualizer.add_drawing_tools(fig)
-    
-    return fig
+    def add_annotations(self, fig):
+        """Add annotations to the chart"""
+        for annotation in self.annotations:
+            fig.add_annotation(annotation)
+        return fig
 
 def render_chart_controls():
-    """
-    Render Streamlit controls for chart customization
-    """
-    # Initialize session state
+    """Render Streamlit controls for chart customization"""
     initialize_session_state()
     
     with st.sidebar:
@@ -259,9 +169,16 @@ def render_chart_controls():
                 index=['candlestick', 'line', 'area'].index(st.session_state.chart_config['chart_type'])
             )
             
+            # Theme Selection
+            theme = st.selectbox(
+                "Chart Theme",
+                list(CHART_THEMES.keys()),
+                index=list(CHART_THEMES.keys()).index(st.session_state.chart_config['theme'])
+            )
+            
             # Update expander state
             st.session_state.expander_states['chart_settings'] = True
-            
+        
         # Technical Overlays Expander
         with st.expander("Technical Overlays", expanded=st.session_state.expander_states['technical_overlays']):
             show_sma = st.checkbox("Show SMA", value='sma' in st.session_state.chart_config['overlays'])
@@ -269,14 +186,14 @@ def render_chart_controls():
             
             # Update expander state
             st.session_state.expander_states['technical_overlays'] = True
-            
+        
         # Drawing Tools Expander
         with st.expander("Drawing Tools", expanded=st.session_state.expander_states['drawing_tools']):
             enable_drawing = st.checkbox("Enable Drawing Tools", value=st.session_state.chart_config['drawing_tools'])
             
             # Update expander state
             st.session_state.expander_states['drawing_tools'] = True
-            
+        
         # Save/Load Configuration Expander
         with st.expander("Save/Load Configuration", expanded=st.session_state.expander_states['save_load']):
             save_name = st.text_input("Configuration Name")
@@ -287,8 +204,55 @@ def render_chart_controls():
         # Update chart configuration
         st.session_state.chart_config.update({
             'chart_type': chart_type,
-            'overlays': ['sma' if show_sma else None, 'ema' if show_ema else None],
+            'theme': theme,
+            'overlays': [x for x in ['sma' if show_sma else None, 'ema' if show_ema else None] if x is not None],
             'drawing_tools': enable_drawing
         })
         
         return st.session_state.chart_config
+
+def create_enhanced_chart(df, config):
+    """Create an enhanced chart with all selected features"""
+    visualizer = ChartVisualizer()
+    
+    # Create base chart
+    fig = visualizer.create_base_chart(df, config['chart_type'], config['theme'])
+    
+    # Add technical indicators if specified
+    if config['overlays']:
+        fig = visualizer.add_technical_indicators(fig, df, config['overlays'])
+    
+    # Add drawings if enabled
+    if config['drawing_tools']:
+        fig = visualizer.add_drawings(fig)
+    
+    # Update layout
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
+    )
+    
+    return fig
+
+def save_chart_config(config, name):
+    """Save chart configuration to file"""
+    config_dir = "chart_configs"
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+    
+    filename = os.path.join(config_dir, f"{name}.json")
+    with open(filename, 'w') as f:
+        json.dump(config, f)
+
+def load_chart_config(name):
+    """Load chart configuration from file"""
+    filename = os.path.join("chart_configs", f"{name}.json")
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            return json.load(f)
+    return None
