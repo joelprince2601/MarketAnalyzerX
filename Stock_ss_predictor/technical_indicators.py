@@ -89,6 +89,12 @@ def calculate_obv(df):
     
     return df
 
+def fix_direction_assignment(df):
+    # Create a copy instead of modifying a view
+    df = df.copy()
+    df.loc[df['daily_ret'] == 0, 'direction'] = 0
+    return df
+
 def plot_advanced_indicators(df):
     """
     Create a comprehensive plot with all advanced indicators
