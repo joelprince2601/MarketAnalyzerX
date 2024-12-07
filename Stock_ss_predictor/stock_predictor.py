@@ -20,7 +20,7 @@ from chart_visualizations import create_enhanced_chart, render_chart_controls
 
 # Load environment variables
 
-ALPHA_VANTAGE_API_KEY = 'ET83IFW2NUS0PD2E'
+ALPHA_VANTAGE_API_KEY = 'CJN7LBTPJOGTCIX5'
 
 def fetch_stock_data(symbol):
     """
