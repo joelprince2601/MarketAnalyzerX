@@ -55,6 +55,9 @@ class ChartVisualizer:
         # Ensure theme exists in CHART_THEMES, fallback to default if not
         theme = theme if theme in CHART_THEMES else 'default'
         
+        # Standardize column names (convert to title case)
+        df.columns = [col.title() for col in df.columns]
+        
         fig = go.Figure(
             layout=go.Layout(
                 template=CHART_THEMES[theme],
@@ -104,6 +107,9 @@ class ChartVisualizer:
 
     def add_volume_subplot(self, fig, df):
         """Add volume subplot to the chart"""
+        # Ensure column names are standardized
+        df.columns = [col.title() for col in df.columns]
+        
         fig.add_trace(
             go.Bar(
                 x=df.index,
@@ -117,6 +123,9 @@ class ChartVisualizer:
 
     def add_technical_indicators(self, fig, df, indicators):
         """Add technical indicators to the chart"""
+        # Ensure column names are standardized
+        df.columns = [col.title() for col in df.columns]
+        
         if 'sma' in indicators:
             sma = df['Close'].rolling(window=20).mean()
             fig.add_trace(
