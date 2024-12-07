@@ -4,7 +4,9 @@ import json
 import os
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime
+from scipy import stats
 
 # Available chart themes
 CHART_THEMES = {
@@ -33,7 +35,11 @@ def initialize_session_state():
             'chart_type': 'candlestick',
             'overlays': [],
             'drawing_tools': False,
-            'theme': 'light'
+            'theme': 'light',
+            'show_trendlines': False,
+            'trendline_period': 20,
+            'show_support_resistance': False,
+            'show_fibonacci': False
         }
     
     if 'expander_states' not in st.session_state:
@@ -41,8 +47,42 @@ def initialize_session_state():
             'chart_settings': True,
             'technical_overlays': True,
             'drawing_tools': True,
+            'technical_analysis': True,
             'save_load': True
         }
+
+def calculate_trendlines(df, period=20):
+    """Calculate trendlines using linear regression"""
+    highs = df['high'].rolling(window=period).max()
+    lows = df['low'].rolling(window=period).min()
+    
+    x = np.arange(len(df))
+    
+    # Resistance line
+    slope_high, intercept_high, _, _, _ = stats.linregress(x[-period:], highs[-period:])
+    resistance_line = slope_high * x + intercept_high
+    
+    # Support line
+    slope_low, intercept_low, _, _, _ = stats.linregress(x[-period:], lows[-period:])
+    support_line = slope_low * x + intercept_low
+    
+    return resistance_line, support_line
+
+def calculate_fibonacci_levels(df):
+    """Calculate Fibonacci retracement levels"""
+    high = df['high'].max()
+    low = df['low'].min()
+    diff = high - low
+    
+    levels = {
+        0.0: low,
+        0.236: low + 0.236 * diff,
+        0.382: low + 0.382 * diff,
+        0.5: low + 0.5 * diff,
+        0.618: low + 0.618 * diff,
+        1.0: high
+    }
+    return levels
 
 class ChartVisualizer:
     def __init__(self):
@@ -50,194 +90,109 @@ class ChartVisualizer:
         self.annotations = []
         self.current_theme = st.session_state.chart_config['theme']
         self.current_chart_type = st.session_state.chart_config['chart_type']
-    
-    def create_base_chart(self, df, chart_type='candlestick', theme='default'):
-        """
-        Create the base chart with specified type and theme
-        """
-        fig = make_subplots(rows=2, cols=1, 
-                           shared_xaxes=True,
-                           vertical_spacing=0.03,
-                           row_heights=[0.7, 0.3])
 
-        # Main price chart
+    def create_base_chart(self, df, chart_type='candlestick', theme='light'):
+        """Create the base chart with the specified type and theme"""
         if chart_type == 'candlestick':
-            fig.add_trace(
-                go.Candlestick(
-                    x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'line':
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df['close'],
-                    mode='lines',
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'area':
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df['close'],
-                    fill='tozeroy',
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'bar':
-            fig.add_trace(
-                go.Ohlc(
-                    x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price'
-                ),
-                row=1, col=1
-            )
-        elif chart_type == 'hollow_candle':
-            fig.add_trace(
-                go.Candlestick(
-                    x=df.index,
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    name='Price',
-                    increasing={'fillcolor': 'white'},
-                    decreasing={'fillcolor': 'black'}
-                ),
-                row=1, col=1
-            )
-
-        # Volume chart
-        fig.add_trace(
-            go.Bar(
+            fig = go.Figure(data=[go.Candlestick(
                 x=df.index,
-                y=df['volume'],
-                name='Volume',
-                marker_color='rgba(100,100,100,0.5)'
-            ),
-            row=2, col=1
-        )
-
+                open=df['open'],
+                high=df['high'],
+                low=df['low'],
+                close=df['close']
+            )])
+        elif chart_type == 'line':
+            fig = go.Figure(data=[go.Scatter(
+                x=df.index,
+                y=df['close'],
+                mode='lines'
+            )])
+        elif chart_type == 'area':
+            fig = go.Figure(data=[go.Scatter(
+                x=df.index,
+                y=df['close'],
+                fill='tozeroy'
+            )])
+            
         # Update layout with theme
         fig.update_layout(
             template=CHART_THEMES[theme],
             xaxis_rangeslider_visible=False,
             height=800
         )
-
-        return fig
-
-    def add_drawing_tools(self, fig):
-        """
-        Add drawing tools to the chart
-        """
-        fig.update_layout(
-            dragmode='drawline',
-            newshape=dict(
-                line_color='yellow'
-            ),
-            modebar_add=[
-                'drawline',
-                'drawopenpath',
-                'drawclosedpath',
-                'drawcircle',
-                'drawrect',
-                'eraseshape'
-            ]
-        )
+        
         return fig
 
     def add_technical_overlays(self, fig, df, overlays):
-        """
-        Add technical overlays to the chart
-        """
+        """Add technical overlays to the chart"""
         if 'sma' in overlays:
-            sma20 = df['close'].rolling(window=20).mean()
-            sma50 = df['close'].rolling(window=50).mean()
+            sma = df['close'].rolling(window=20).mean()
+            fig.add_trace(go.Scatter(
+                x=df.index,
+                y=sma,
+                name='SMA (20)',
+                line=dict(color='blue')
+            ))
             
-            fig.add_trace(
-                go.Scatter(x=df.index, y=sma20, name='SMA 20', line=dict(color='blue')),
-                row=1, col=1
-            )
-            fig.add_trace(
-                go.Scatter(x=df.index, y=sma50, name='SMA 50', line=dict(color='red')),
-                row=1, col=1
-            )
-
-        if 'bollinger' in overlays:
-            sma20 = df['close'].rolling(window=20).mean()
-            std20 = df['close'].rolling(window=20).std()
-            upper_band = sma20 + (std20 * 2)
-            lower_band = sma20 - (std20 * 2)
+        if 'ema' in overlays:
+            ema = df['close'].ewm(span=20).mean()
+            fig.add_trace(go.Scatter(
+                x=df.index,
+                y=ema,
+                name='EMA (20)',
+                line=dict(color='orange')
+            ))
             
-            fig.add_trace(
-                go.Scatter(x=df.index, y=upper_band, name='Upper BB',
-                          line=dict(color='gray', dash='dash')),
-                row=1, col=1
-            )
-            fig.add_trace(
-                go.Scatter(x=df.index, y=lower_band, name='Lower BB',
-                          line=dict(color='gray', dash='dash')),
-                row=1, col=1
-            )
-
         return fig
 
-    def save_chart_config(self, config, filename):
-        """
-        Save chart configuration to a file
-        """
-        config['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+def add_technical_analysis(fig, df, config):
+    """Add technical analysis features to the chart"""
+    if config.get('show_trendlines', False):
+        resistance, support = calculate_trendlines(df, config['trendline_period'])
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=resistance,
+            name='Resistance',
+            line=dict(color='red', dash='dash'),
+            opacity=0.7
+        ))
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=support,
+            name='Support',
+            line=dict(color='green', dash='dash'),
+            opacity=0.7
+        ))
+    
+    if config.get('show_fibonacci', False):
+        fib_levels = calculate_fibonacci_levels(df)
+        colors = ['rgba(255,0,0,0.3)', 'rgba(255,165,0,0.3)', 'rgba(255,255,0,0.3)',
+                 'rgba(0,255,0,0.3)', 'rgba(0,0,255,0.3)']
         
-        # Create directory if it doesn't exist
-        os.makedirs('chart_configs', exist_ok=True)
-        
-        with open(f'chart_configs/{filename}.json', 'w') as f:
-            json.dump(config, f)
+        for (level, value), color in zip(fib_levels.items(), colors):
+            fig.add_hline(
+                y=value,
+                line_dash="dash",
+                line_color=color,
+                annotation_text=f"Fib {level}",
+                annotation_position="right"
+            )
+    
+    return fig
 
-    def load_chart_config(self, filename):
-        """
-        Load chart configuration from a file
-        """
-        try:
-            with open(f'chart_configs/{filename}.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return None
-
-def create_enhanced_chart(df, config=None):
-    """
-    Main function to create enhanced chart with all features
-    """
+def create_enhanced_chart(df, config):
+    """Create an enhanced chart with all selected features"""
+    # Initialize visualizer
     visualizer = ChartVisualizer()
     
-    if config is None:
-        config = st.session_state.chart_config
-    else:
-        st.session_state.chart_config = config
-    
     # Create base chart
-    fig = visualizer.create_base_chart(df, config['chart_type'], config['theme'])
+    fig = visualizer.create_base_chart(df, config['chart_type'], config.get('theme', 'light'))
     
     # Add technical overlays
     fig = visualizer.add_technical_overlays(fig, df, config['overlays'])
     
-    # Add drawing tools if enabled
-    if config.get('drawing_tools', True):
-        fig = visualizer.add_drawing_tools(fig)
+    # Add technical analysis features
+    fig = add_technical_analysis(fig, df, config)
     
     return fig
 
@@ -271,6 +226,20 @@ def render_chart_controls():
             # Update expander state
             st.session_state.expander_states['technical_overlays'] = True
             
+        # Technical Analysis Expander
+        with st.expander("Technical Analysis", expanded=st.session_state.expander_states['technical_analysis']):
+            show_trendlines = st.checkbox("Show Trendlines", value=st.session_state.chart_config.get('show_trendlines', False))
+            show_support_resistance = st.checkbox("Show Support/Resistance", value=st.session_state.chart_config.get('show_support_resistance', False))
+            show_fibonacci = st.checkbox("Show Fibonacci Levels", value=st.session_state.chart_config.get('show_fibonacci', False))
+            
+            if show_trendlines:
+                trendline_period = st.slider("Trendline Period", 5, 50, 20)
+            else:
+                trendline_period = 20
+            
+            # Update expander state
+            st.session_state.expander_states['technical_analysis'] = True
+            
         # Drawing Tools Expander
         with st.expander("Drawing Tools", expanded=st.session_state.expander_states['drawing_tools']):
             enable_drawing = st.checkbox("Enable Drawing Tools", value=st.session_state.chart_config['drawing_tools'])
@@ -289,7 +258,11 @@ def render_chart_controls():
         st.session_state.chart_config.update({
             'chart_type': chart_type,
             'overlays': ['sma' if show_sma else None, 'ema' if show_ema else None],
-            'drawing_tools': enable_drawing
+            'drawing_tools': enable_drawing,
+            'show_trendlines': show_trendlines,
+            'trendline_period': trendline_period,
+            'show_support_resistance': show_support_resistance,
+            'show_fibonacci': show_fibonacci
         })
         
         return st.session_state.chart_config
