@@ -17,5 +17,4 @@ vaderSentiment==3.3.2
 streamlit-option-menu==0.3.2
 pandas-ta==0.3.14b0
 opencv-python-headless==4.8.1.78
-protobuf==3.20.0
-distutils-precedence==0.1.0
+protobuf==3.19.6  # Changed to be compatible with tensorflow-cpu
