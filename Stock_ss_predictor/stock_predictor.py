@@ -183,12 +183,7 @@ def main():
     st.write("Upload a stock chart and select the stock for pattern analysis")
 
     # Add information about API limits
-    st.info("""
-    Note: This application uses Alpha Vantage API and NewsAPI with following limits:
-    - Alpha Vantage: 5 API calls per minute, 500 API calls per day
-    - NewsAPI: 100 requests per day
-    Please wait a minute between analyses if you receive a frequency limit error.
-    """)
+    
 
     # Add sector filter
     selected_sector = st.selectbox(
