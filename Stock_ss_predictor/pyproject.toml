@@ -5,4 +5,4 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "marketanalyzerx"
 version = "0.1.0"
-description = "A stock market analysis application" 
+description = "A stock market analysis application by Joel Prince" 
