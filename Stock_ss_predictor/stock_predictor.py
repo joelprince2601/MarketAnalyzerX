@@ -25,6 +25,7 @@ from chart_tables import (
     create_news_summary_table
 )
 from stock_predictions import display_stock_opportunities
+from trading_analytics import display_price_targets
 
 # Load environment variables
 ALPHA_VANTAGE_API_KEY = 'CAT8NZ23VZXP62CE'
@@ -349,6 +350,9 @@ def main():
                                 "50-day Average": f"₹{df['close'].head(50).mean():.2f}",
                                 "Trading Volume": f"{int(df['volume'].iloc[0]):,}"
                             })
+                            
+                            # Add Price Targets
+                            display_price_targets(df)
             else:
                 st.error(f"Could not find symbol for {selected_stock_name}")
         
