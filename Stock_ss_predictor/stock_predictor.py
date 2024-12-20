@@ -17,10 +17,17 @@ from technical_indicators import get_advanced_analysis
 from news_analyzer import get_news_analysis
 from indian_stocks import get_all_stocks, get_stock_info, get_stocks_by_sector
 from chart_visualizations import create_enhanced_chart, render_chart_controls
+from chart_tables import (
+    create_table_visualization,
+    create_indicator_summary,
+    create_fibonacci_visualization,
+    create_sentiment_gauge,
+    create_news_summary_table
+)
+from stock_predictions import display_stock_opportunities
 
 # Load environment variables
-
-ALPHA_VANTAGE_API_KEY = 'CJN7LBTPJOGTCIX5'
+ALPHA_VANTAGE_API_KEY = 'CAT8NZ23VZXP62CE'
 
 def fetch_stock_data(symbol):
     """
@@ -41,6 +48,7 @@ def fetch_stock_data(symbol):
         
         if 'Time Series (Daily)' in data:
             df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
+            df.columns = ['1. open', '2. high', '3. low', '4. close', '5. volume']
             df.columns = ['open', 'high', 'low', 'close', 'volume']
             df.index = pd.to_datetime(df.index)
             for col in df.columns:
@@ -48,9 +56,10 @@ def fetch_stock_data(symbol):
             return df
         else:
             error_message = data.get('Note', data.get('Error Message', 'Unknown error'))
-            st.error(f"Error fetching data: {error_message}")
             if 'Note' in data:
                 st.warning("API call frequency limit reached. Please wait a minute before trying again.")
+            else:
+                st.error(f"Error fetching data: {error_message}")
             return None
             
     except Exception as e:
@@ -81,7 +90,7 @@ def detect_trend_lines(img_gray):
 
 def analyze_chart(image, df, symbol, company_name):
     """
-    Enhanced analysis including trend lines, real-time signals, and news
+    Enhanced analysis including trend lines, signals, and news
     """
     # Get news analysis
     news_data = get_news_analysis(company_name)
@@ -92,14 +101,12 @@ def analyze_chart(image, df, symbol, company_name):
     
     # Pattern Analysis Results
     analysis_results = []
-    
-    # Detect trend lines
-    trend_lines = detect_trend_lines(img_gray)
+    signals = []
     
     # Get advanced technical analysis
     advanced_analysis = get_advanced_analysis(df)
     
-    # Get chart configuration from sidebar
+    # Get chart configuration
     chart_config = render_chart_controls()
     
     # Create enhanced chart
@@ -121,44 +128,63 @@ def analyze_chart(image, df, symbol, company_name):
     current_volume = df['volume'].iloc[-1]
     volume_ratio = current_volume / avg_volume
     
-    # Get market sentiment from news
+    # Get market sentiment
     market_sentiment = news_data['company_sentiment'] if news_data['company_sentiment'] is not None else 0
     
-    # Generate Buy/Sell Signals
-    signals = []
+    # Generate Buy/Sell Signals with Confidence Levels
     
     # RSI Signals
     if current_rsi < 30:
-        signals.append(("BUY", "RSI oversold condition"))
+        signals.append(("STRONG BUY", "RSI indicates heavily oversold condition", 0.9))
+        analysis_results.append("Strong buying opportunity detected: RSI below 30")
+    elif current_rsi < 40:
+        signals.append(("BUY", "RSI indicates oversold condition", 0.7))
     elif current_rsi > 70:
-        signals.append(("SELL", "RSI overbought condition"))
+        signals.append(("STRONG SELL", "RSI indicates heavily overbought condition", 0.9))
+        analysis_results.append("Strong selling signal: RSI above 70")
+    elif current_rsi > 60:
+        signals.append(("SELL", "RSI indicates overbought condition", 0.7))
     
     # MACD Signals
     if macd_hist.iloc[-1] > 0 and macd_hist.iloc[-2] < 0:
-        signals.append(("BUY", "MACD crossover"))
+        signals.append(("BUY", "MACD bullish crossover", 0.8))
+        analysis_results.append("Bullish MACD crossover detected")
     elif macd_hist.iloc[-1] < 0 and macd_hist.iloc[-2] > 0:
-        signals.append(("SELL", "MACD crossover"))
+        signals.append(("SELL", "MACD bearish crossover", 0.8))
+        analysis_results.append("Bearish MACD crossover detected")
     
     # Volume Signals
-    if volume_ratio > 1.5 and df['close'].iloc[-1] > df['close'].iloc[-2]:
-        signals.append(("BUY", "High volume breakout"))
-    elif volume_ratio > 1.5 and df['close'].iloc[-1] < df['close'].iloc[-2]:
-        signals.append(("SELL", "High volume breakdown"))
+    if volume_ratio > 2.0 and df['close'].iloc[-1] > df['close'].iloc[-2]:
+        signals.append(("BUY", "High volume breakout", 0.85))
+        analysis_results.append("Strong volume breakout detected")
+    elif volume_ratio > 2.0 and df['close'].iloc[-1] < df['close'].iloc[-2]:
+        signals.append(("SELL", "High volume breakdown", 0.85))
+        analysis_results.append("High volume selling pressure detected")
     
-    # Add news-based signals
-    if market_sentiment > 0.2:
-        signals.append(("BUY", "Positive news sentiment"))
-    elif market_sentiment < -0.2:
-        signals.append(("SELL", "Negative news sentiment"))
-    
-    # Add advanced indicator signals
-    if advanced_analysis['current_indicators']['macd_histogram'] > 0:
-        signals.append(("BUY", "MACD Histogram positive"))
-    elif advanced_analysis['current_indicators']['macd_histogram'] < 0:
-        signals.append(("SELL", "MACD Histogram negative"))
-    
+    # Trend Analysis
     if advanced_analysis['current_indicators']['adx'] > 25:
-        signals.append(("INFO", "Strong trend detected (ADX > 25)"))
+        trend_strength = "Strong"
+        if df['close'].iloc[-1] > df['close'].iloc[-5]:
+            signals.append(("BUY", f"{trend_strength} uptrend detected", 0.75))
+        else:
+            signals.append(("SELL", f"{trend_strength} downtrend detected", 0.75))
+    
+    # News Sentiment Impact
+    if market_sentiment > 0.3:
+        signals.append(("BUY", "Positive news sentiment", 0.6))
+    elif market_sentiment < -0.3:
+        signals.append(("SELL", "Negative news sentiment", 0.6))
+    
+    # Sort signals by confidence level
+    signals.sort(key=lambda x: x[2], reverse=True)
+    
+    # Prepare final analysis summary
+    if signals:
+        top_signal = signals[0]
+        if top_signal[0] in ["STRONG BUY", "BUY"]:
+            analysis_results.insert(0, f"🟢 Primary Signal: {top_signal[0]} - {top_signal[1]} (Confidence: {top_signal[2]*100:.0f}%)")
+        else:
+            analysis_results.insert(0, f"🔴 Primary Signal: {top_signal[0]} - {top_signal[1]} (Confidence: {top_signal[2]*100:.0f}%)")
     
     return {
         'analysis': analysis_results,
@@ -171,144 +197,163 @@ def analyze_chart(image, df, symbol, company_name):
             'ADX': round(advanced_analysis['current_indicators']['adx'], 2),
             'OBV': int(advanced_analysis['current_indicators']['obv'])
         },
+        'signals': signals,
         'fibonacci_levels': advanced_analysis['fibonacci_levels'],
         'ichimoku_cloud': advanced_analysis['ichimoku_cloud'],
-        'signals': signals,
         'news_data': news_data,
         'chart_config': chart_config
     }
 
 def main():
     st.title("MarketAnalyzerX")
-    st.write("Upload a stock chart and select the stock for pattern analysis")
-
-    # Add information about API limits
     
-
-    # Add sector filter
-    selected_sector = st.selectbox(
-        "Filter by Sector (Optional)",
-        ["All Sectors", "BANKING", "IT", "PHARMA", "AUTO", "CONSUMER"]
-    )
-
-    # Get stock list based on sector
-    if selected_sector == "All Sectors":
-        available_stocks = get_all_stocks()
-    else:
-        available_stocks = get_stocks_by_sector(selected_sector)
-        if not available_stocks:
-            st.warning(f"No stocks found in {selected_sector} sector. Showing all stocks.")
+    # Add tabs for different functionalities
+    tab1, tab2 = st.tabs(["Pattern Analysis", "Market Opportunities"])
+    
+    with tab1:
+        st.write("Upload a stock chart and select the stock for pattern analysis")
+        
+        
+        
+        # Add sector filter
+        selected_sector = st.selectbox(
+            "Filter by Sector (Optional)",
+            ["All Sectors", "BANKING", "IT", "PHARMA", "AUTO", "CONSUMER"],
+            key="pattern_sector"
+        )
+        
+        # Get stock list based on sector
+        if selected_sector == "All Sectors":
             available_stocks = get_all_stocks()
-
-    # File uploader
-    uploaded_file = st.file_uploader("Choose a stock chart image", type=['png', 'jpg', 'jpeg'])
-    
-    # Stock selector with sector filtering
-    selected_stock_name = st.selectbox(
-        "Select the stock",
-        available_stocks
-    )
-    
-    if uploaded_file and selected_stock_name:
-        # Display the uploaded image
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Stock Chart", use_column_width=True)
-        
-        # Get the stock symbol
-        symbol = get_stock_info(selected_stock_name)
-        
-        if symbol:
-            if st.button("Analyze Pattern"):
-                with st.spinner("Analyzing chart, fetching data, and gathering news..."):
-                    # Fetch historical data
-                    df = fetch_stock_data(symbol)
-                    
-                    if df is not None:
-                        st.success("Data fetched successfully!")
-                        
-                        # Display recent stock data
-                        st.subheader("Recent Stock Data")
-                        st.dataframe(df.head())
-                        
-                        # Pass symbol and company name to analyze_chart
-                        analysis_result = analyze_chart(image, df, symbol, selected_stock_name)
-                        
-                        # Display pattern analysis results
-                        st.subheader("Pattern Analysis Results")
-                        for result in analysis_result['analysis']:
-                            st.write(result)
-                        
-                        # Display enhanced chart with all indicators
-                        st.plotly_chart(analysis_result['chart'])
-                        
-                        # Display technical indicators
-                        st.subheader("Technical Indicators")
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("RSI", f"{analysis_result['technical_indicators']['RSI']}")
-                            st.metric("ADX", f"{analysis_result['technical_indicators']['ADX']}")
-                        with col2:
-                            st.metric("MACD", f"{analysis_result['technical_indicators']['MACD']}")
-                            st.metric("OBV", f"{analysis_result['technical_indicators']['OBV']:,}")
-                        with col3:
-                            st.metric("Volume Ratio", f"{analysis_result['technical_indicators']['Volume Ratio']}")
-                            st.metric("News Sentiment", f"{analysis_result['technical_indicators']['News Sentiment']:.2f}")
-                        
-                        # Display Fibonacci Levels
-                        st.subheader("Fibonacci Retracement Levels")
-                        fib_df = pd.DataFrame.from_dict(analysis_result['fibonacci_levels'], 
-                                                      orient='index', 
-                                                      columns=['Price Level'])
-                        st.dataframe(fib_df)
-                        
-                        # Display Ichimoku Cloud Values
-                        st.subheader("Ichimoku Cloud Indicators")
-                        ichimoku_df = pd.DataFrame.from_dict(analysis_result['ichimoku_cloud'], 
-                                                           orient='index', 
-                                                           columns=['Value'])
-                        st.dataframe(ichimoku_df)
-                        
-                        # Display News Analysis
-                        st.subheader("News Analysis")
-                        st.write("News Summary:")
-                        st.write(analysis_result['news_data']['news_summary'])
-                        
-                        # Display recent articles
-                        st.subheader("Recent Company News")
-                        for article in analysis_result['news_data']['recent_articles'][:5]:
-                            with st.expander(f"{article['title']} ({article['source']})"):
-                                st.write(article['description'])
-                                st.write(f"Sentiment: {'Positive' if article['sentiment'] > 0 else 'Negative' if article['sentiment'] < 0 else 'Neutral'}")
-                                st.write(f"[Read more]({article['url']})")
-                        
-                        # Display market news
-                        st.subheader("General Market News")
-                        for article in analysis_result['news_data']['market_news']:
-                            with st.expander(f"{article['title']} ({article['source']})"):
-                                st.write(article['description'])
-                                st.write(f"[Read more]({article['url']})")
-                        
-                        # Display Buy/Sell Signals
-                        st.subheader("Trading Signals")
-                        signals = analysis_result['signals']
-                        
-                        for signal, reason in signals:
-                            if signal == "BUY":
-                                st.success(f"🔵 BUY Signal: {reason}")
-                            elif signal == "SELL":
-                                st.error(f"🔴 SELL Signal: {reason}")
-                            else:
-                                st.info(f"ℹ️ {reason}")
-                        
-                        # Display basic statistics
-                        st.subheader("Basic Statistics")
-                        st.write({
-                            "Latest Close": f"₹{df['close'].iloc[0]:.2f}",
-                            "50-day Average": f"₹{df['close'].head(50).mean():.2f}",
-                            "Trading Volume": f"{int(df['volume'].iloc[0]):,}"
-                        })
         else:
-            st.error(f"Could not find symbol for {selected_stock_name}")
+            available_stocks = get_stocks_by_sector(selected_sector)
+            if not available_stocks:
+                st.warning(f"No stocks found in {selected_sector} sector. Showing all stocks.")
+                available_stocks = get_all_stocks()
+        
+        # File uploader
+        uploaded_file = st.file_uploader("Choose a stock chart image", type=['png', 'jpg', 'jpeg'])
+        
+        # Stock selector with sector filtering
+        selected_stock_name = st.selectbox(
+            "Select the stock",
+            available_stocks,
+            key="pattern_stock"
+        )
+        
+        if uploaded_file and selected_stock_name:
+            # Display the uploaded image
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Stock Chart", use_column_width=True)
+            
+            # Get the stock symbol
+            symbol = get_stock_info(selected_stock_name)
+            
+            if symbol:
+                if st.button("Analyze Pattern", key="pattern_analyze"):
+                    with st.spinner("Analyzing chart, fetching data, and gathering news..."):
+                        # Fetch historical data
+                        df = fetch_stock_data(symbol)
+                        
+                        if df is not None:
+                            st.success("Data fetched successfully!")
+                            
+                            # Display recent stock data
+                            st.subheader("Recent Stock Data")
+                            st.dataframe(df.head())
+                            
+                            # Pass symbol and company name to analyze_chart
+                            analysis_result = analyze_chart(image, df, symbol, selected_stock_name)
+                            
+                            # Display pattern analysis results
+                            st.subheader("Trading Signals & Analysis")
+                            col1, col2 = st.columns([2, 1])
+
+                            with col1:
+                                for result in analysis_result['analysis']:
+                                    if result.startswith('🟢') or result.startswith('🔴'):
+                                        st.markdown(f"### {result}")
+                                    else:
+                                        st.write(result)
+
+                            with col2:
+                                # Display a summary box of signals
+                                st.markdown("""
+                                <style>
+                                .signal-box {
+                                    padding: 10px;
+                                    border-radius: 5px;
+                                    margin: 5px 0;
+                                }
+                                .buy {background-color: rgba(46, 204, 113, 0.2)}
+                                .sell {background-color: rgba(231, 76, 60, 0.2)}
+                                </style>
+                                """, unsafe_allow_html=True)
+                                
+                                for signal, reason, confidence in analysis_result['signals'][:3]:
+                                    color_class = "buy" if "BUY" in signal else "sell"
+                                    st.markdown(f"""
+                                    <div class="signal-box {color_class}">
+                                    <strong>{signal}</strong><br>
+                                    {reason}<br>
+                                    Confidence: {confidence*100:.0f}%
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                            
+                            # Display enhanced chart with all indicators
+                            st.plotly_chart(analysis_result['chart'])
+                            
+                            # Display technical indicators
+                            st.subheader("Technical Indicators")
+                            indicators_fig = create_indicator_summary(analysis_result['technical_indicators'])
+                            st.plotly_chart(indicators_fig)
+                            
+                            # Add Fibonacci visualization
+                            st.subheader("Fibonacci Retracement Levels")
+                            fib_fig = create_fibonacci_visualization(analysis_result['fibonacci_levels'])
+                            st.plotly_chart(fib_fig)
+                            
+                            # Add sentiment gauge
+                            st.subheader("Market Sentiment")
+                            sentiment_fig = create_sentiment_gauge(analysis_result['technical_indicators']['News Sentiment'])
+                            st.plotly_chart(sentiment_fig)
+                            
+                            # Update news display
+                            st.subheader("Recent News")
+                            if analysis_result['news_data']['recent_articles']:
+                                for article in analysis_result['news_data']['recent_articles']:
+                                    with st.expander(f"{article['title']} (Sentiment: {article['sentiment']:.2f})"):
+                                        st.write(f"Source: {article['source']}")
+                                        if 'description' in article:
+                                            st.write(article['description'])
+                                        if 'url' in article:
+                                            st.write(f"[Read more]({article['url']})")
+                            else:
+                                st.info("No recent news found for this stock")
+                            
+                            # Add market news if available
+                            if analysis_result['news_data'].get('market_news'):
+                                st.subheader("Market News")
+                                for news in analysis_result['news_data']['market_news']:
+                                    with st.expander(news['title']):
+                                        st.write(f"Source: {news['source']}")
+                                        if 'description' in news:
+                                            st.write(news['description'])
+                                        if 'url' in news:
+                                            st.write(f"[Read more]({news['url']})")
+                            
+                            # Display basic statistics
+                            st.subheader("Basic Statistics")
+                            st.write({
+                                "Latest Close": f"₹{df['close'].iloc[0]:.2f}",
+                                "50-day Average": f"₹{df['close'].head(50).mean():.2f}",
+                                "Trading Volume": f"{int(df['volume'].iloc[0]):,}"
+                            })
+            else:
+                st.error(f"Could not find symbol for {selected_stock_name}")
+        
+    with tab2:
+        display_stock_opportunities()
 
 if __name__ == "__main__":
-    main() 
+    main()
