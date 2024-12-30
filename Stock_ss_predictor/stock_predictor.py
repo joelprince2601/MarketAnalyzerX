@@ -28,7 +28,7 @@ from stock_predictions import display_stock_opportunities
 from trading_analytics import display_price_targets
 
 # Load environment variables
-ALPHA_VANTAGE_API_KEY = 'CAT8NZ23VZXP62CE'
+ALPHA_VANTAGE_API_KEY = 'FCUWUJUPQYQV47ZG'
 
 def fetch_stock_data(symbol):
     """
@@ -209,11 +209,12 @@ def main():
     st.title("MarketAnalyzerX")
     
     # Add tabs for different functionalities
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Pattern Analysis", 
         "Market Opportunities", 
         "Technical Screener",
-        "Portfolio Analysis"
+        "Portfolio Analysis",
+        "Learning Center"
     ])
     
     with tab1:
@@ -490,6 +491,137 @@ def main():
                     st.metric("Current Value", f"₹{current_value:,.2f}")
                 with col3:
                     st.metric("Overall Return", f"{total_return:,.2f}%")
+    
+    with tab5:
+        st.title("Stock Market Learning Center")
+        
+        # Create three main sections
+        learning_section = st.radio(
+            "Select Learning Section",
+            ["Trading Tutorials", "Market Glossary", "Paper Trading Simulator"]
+        )
+        
+        if learning_section == "Trading Tutorials":
+            st.subheader("Stock Trading Tutorials")
+            
+            # Tutorial levels
+            level = st.selectbox(
+                "Select Your Level",
+                ["Beginner", "Intermediate", "Advanced"]
+            )
+            
+            # Tutorial content based on level
+            if level == "Beginner":
+                topics = {
+                    "Introduction to Stock Markets": {
+                        "content": """
+                        ### What is the Stock Market?
+                        The stock market is a place where shares of publicly traded companies are bought and sold.
+                        
+                        ### Key Concepts:
+                        - **Stocks**: Represent ownership in a company
+                        - **Exchange**: Platform where stocks are traded
+                        - **Market Index**: Measures the performance of a group of stocks
+                        
+                        ### Basic Terms:
+                        1. Bull Market: Market is rising
+                        2. Bear Market: Market is falling
+                        3. Dividend: Company profits paid to shareholders
+                        """,
+                        "video_url": "https://youtube.com/..."
+                    },
+                    "Basic Technical Analysis": {
+                        "content": """
+                        ### Understanding Charts
+                        Learn to read different types of stock charts and basic patterns.
+                        
+                        ### Common Indicators:
+                        - Moving Averages
+                        - Volume Analysis
+                        - Support and Resistance
+                        """,
+                        "video_url": "https://youtube.com/..."
+                    }
+                }
+            
+            elif level == "Intermediate":
+                topics = {
+                    "Advanced Chart Patterns": {
+                        "content": """
+                        ### Popular Trading Patterns
+                        - Head and Shoulders
+                        - Double Top/Bottom
+                        - Triangle Patterns
+                        
+                        ### Using Multiple Timeframes
+                        Understanding different time horizons for better analysis.
+                        """,
+                        "video_url": "https://youtube.com/..."
+                    }
+                }
+            
+            else:  # Advanced
+                topics = {
+                    "Advanced Trading Strategies": {
+                        "content": """
+                        ### Complex Trading Strategies
+                        - Options Trading
+                        - Risk Management
+                        - Portfolio Optimization
+                        
+                        ### Market Psychology
+                        Understanding market sentiment and behavioral finance.
+                        """,
+                        "video_url": "https://youtube.com/..."
+                    }
+                }
+            
+            # Display topics
+            for topic, data in topics.items():
+                with st.expander(topic):
+                    st.markdown(data["content"])
+                    st.write("📺 [Watch Video Tutorial](" + data["video_url"] + ")")
+        
+        elif learning_section == "Market Glossary":
+            st.subheader("Stock Market Glossary")
+            
+            # Search functionality
+            search_term = st.text_input("Search Terms", "")
+            
+            # Glossary dictionary
+            glossary = {
+                "Ask Price": "The lowest price a seller is willing to accept for a stock",
+                "Bid Price": "The highest price a buyer is willing to pay for a stock",
+                "Blue Chip": "Stock of a large, well-established company with stable earnings",
+                "Dividend": "A portion of company's earnings paid to shareholders",
+                "EPS (Earnings Per Share)": "Company's profit divided by outstanding shares",
+                "MACD": "Moving Average Convergence Divergence - A technical indicator",
+                "P/E Ratio": "Price-to-Earnings Ratio - Stock price divided by earnings per share",
+                "RSI": "Relative Strength Index - Momentum indicator measuring speed of price changes",
+                "Volume": "Number of shares traded during a specific period",
+                "Yield": "Dividend expressed as a percentage of stock price"
+            }
+            
+            # Filter terms based on search
+            filtered_terms = {k: v for k, v in glossary.items() 
+                            if search_term.lower() in k.lower() or 
+                            search_term.lower() in v.lower()}
+            
+            # Display glossary
+            for term, definition in filtered_terms.items():
+                with st.expander(term):
+                    st.write(definition)
+        
+        else:  # Paper Trading Simulator
+            st.subheader("Stock Market Simulator Game")
+            st.markdown("""
+            Practice trading in a risk-free environment with simulated market conditions.
+            The simulator runs a complete trading day (9:15 AM to 3:30 PM) in 30 seconds.
+            """)
+            
+            # Import and run simulation without any real market data
+            from trading_simulator import run_trading_simulation
+            run_trading_simulation()
 
 if __name__ == "__main__":
     main()
