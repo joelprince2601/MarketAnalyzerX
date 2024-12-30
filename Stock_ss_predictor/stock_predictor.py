@@ -209,7 +209,12 @@ def main():
     st.title("MarketAnalyzerX")
     
     # Add tabs for different functionalities
-    tab1, tab2 = st.tabs(["Pattern Analysis", "Market Opportunities"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Pattern Analysis", 
+        "Market Opportunities", 
+        "Technical Screener",
+        "Portfolio Analysis"
+    ])
     
     with tab1:
         st.write("Upload a stock chart and select the stock for pattern analysis")
@@ -358,6 +363,133 @@ def main():
         
     with tab2:
         display_stock_opportunities()
+        
+    with tab3:
+        st.title("Technical Stock Screener")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            sector = st.selectbox(
+                "Select Sector",
+                ["All Sectors", "BANKING", "IT", "PHARMA", "AUTO", "CONSUMER"]
+            )
+            rsi_range = st.slider(
+                "RSI Range",
+                0, 100, (30, 70)
+            )
+            
+        with col2:
+            volume_filter = st.selectbox(
+                "Volume Filter",
+                ["Above Average", "High Volume", "Very High Volume", "Any"]
+            )
+            trend_filter = st.selectbox(
+                "Trend Filter",
+                ["Uptrend", "Downtrend", "Sideways", "Any"]
+            )
+        
+        # Price Range Filter
+        price_range = st.slider(
+            "Price Range (₹)",
+            0, 10000, (100, 5000)
+        )
+        
+        # Pattern Selection
+        patterns = st.multiselect(
+            "Select Patterns to Screen",
+            ["Double Bottom", "Double Top", "Head and Shoulders", 
+             "Inverse H&S", "Bull Flag", "Bear Flag"],
+            default=["Double Bottom", "Bull Flag"]
+        )
+        
+        if st.button("Run Technical Screen"):
+            with st.spinner("Screening stocks..."):
+                # Import and use the screen_stocks function
+                from technical_screener import screen_stocks
+                results = screen_stocks(
+                    sector, rsi_range, volume_filter, 
+                    trend_filter, price_range, patterns
+                )
+                if results is not None and not results.empty:
+                    st.success("Screening Complete!")
+                    st.dataframe(results)
+                else:
+                    st.info("No stocks matched your screening criteria.")
+    
+    with tab4:
+        st.title("Portfolio Analysis")
+        
+        # Portfolio Input Section
+        with st.expander("Add Stock to Portfolio"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                stock_symbol = st.selectbox(
+                    "Select Stock",
+                    get_all_stocks()
+                )
+            with col2:
+                quantity = st.number_input("Quantity", min_value=1, value=1)
+            with col3:
+                buy_price = st.number_input("Buy Price (₹)", min_value=0.0, value=0.0)
+                
+            if st.button("Add to Portfolio"):
+                # Initialize portfolio in session state if it doesn't exist
+                if 'portfolio' not in st.session_state:
+                    st.session_state.portfolio = {}
+                
+                # Add stock to portfolio
+                st.session_state.portfolio[stock_symbol] = {
+                    'quantity': quantity,
+                    'buy_price': buy_price
+                }
+                st.success(f"Added {stock_symbol} to portfolio!")
+        
+        # Portfolio Analysis Section
+        if 'portfolio' in st.session_state and st.session_state.portfolio:
+            st.subheader("Current Portfolio")
+            
+            portfolio_data = []
+            total_investment = 0
+            current_value = 0
+            
+            for symbol, details in st.session_state.portfolio.items():
+                df = fetch_stock_data(get_stock_info(symbol))
+                if df is not None:
+                    current_price = df['close'].iloc[-1]
+                    investment = details['quantity'] * details['buy_price']
+                    value = details['quantity'] * current_price
+                    gain_loss = value - investment
+                    gain_loss_pct = (gain_loss / investment) * 100
+                    
+                    portfolio_data.append({
+                        'Stock': symbol,
+                        'Quantity': details['quantity'],
+                        'Buy Price': f"₹{details['buy_price']:,.2f}",
+                        'Current Price': f"₹{current_price:,.2f}",
+                        'Investment': f"₹{investment:,.2f}",
+                        'Current Value': f"₹{value:,.2f}",
+                        'Gain/Loss': f"₹{gain_loss:,.2f}",
+                        'Return %': f"{gain_loss_pct:,.2f}%"
+                    })
+                    
+                    total_investment += investment
+                    current_value += value
+            
+            if portfolio_data:
+                df_portfolio = pd.DataFrame(portfolio_data)
+                st.dataframe(df_portfolio)
+                
+                # Portfolio Summary
+                total_gain_loss = current_value - total_investment
+                total_return = (total_gain_loss / total_investment) * 100
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Investment", f"₹{total_investment:,.2f}")
+                with col2:
+                    st.metric("Current Value", f"₹{current_value:,.2f}")
+                with col3:
+                    st.metric("Overall Return", f"{total_return:,.2f}%")
 
 if __name__ == "__main__":
     main()
